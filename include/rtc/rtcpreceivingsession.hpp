@@ -35,7 +35,7 @@ public:
 	[[deprecated("Use Track::requestKeyframe()")]] inline bool requestKeyframe() { return false; };
 	[[deprecated("Use Track::requestBitrate()")]] inline void requestBitrate(unsigned int) {};
 
-protected:
+// protected:
 	void pushREMB(const message_callback &send, unsigned int bitrate);
 	void pushRR(const message_callback &send,unsigned int lastSrDelay);
 	void pushPLI(const message_callback &send);

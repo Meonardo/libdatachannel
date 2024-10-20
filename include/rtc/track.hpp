@@ -36,6 +36,7 @@ public:
 	void close(void) override;
 	bool send(message_variant data) override;
 	bool send(const byte *data, size_t size) override;
+	bool send(message_ptr msg);
 
 	bool isOpen(void) const override;
 	bool isClosed(void) const override;
