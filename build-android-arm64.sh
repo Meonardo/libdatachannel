@@ -16,7 +16,7 @@ android_abi="arm64-v8a"
 android_platform="android-21"
 
 # config
-cmake -B build -DUSE_GNUTLS=0 -DUSE_NICE=0 -DCMAKE_BUILD_TYPE=Release -DOPENSSL_USE_STATIC_LIBS=1 -DOPENSSL_ROOT_DIR=$openssl_dir -DCMAKE_TOOLCHAIN_FILE=$tool_chain_file -DANDROID_ABI=$android_abi -DANDROID_PLATFORM=$android_platform -DCMAKE_INSTALL_PREFIX=$current_dir/build/install
+cmake -B build -DUSE_GNUTLS=0 -DUSE_NICE=0 -DCMAKE_BUILD_TYPE=Release -DOPENSSL_USE_STATIC_LIBS=1 -DOPENSSL_ROOT_DIR=/home/meonardo/Android/openssl -DCMAKE_TOOLCHAIN_FILE=$tool_chain_file -DANDROID_ABI=$android_abi -DANDROID_PLATFORM=$android_platform -DCMAKE_INSTALL_PREFIX=$current_dir/build/install
 
 # preparations
 cd ./build
@@ -39,3 +39,7 @@ if [ -f "${lib_path}" ]; then
 else
     echo "Library not found at ${lib_path}"
 fi
+
+echo "Copying the library to the destination"
+cd install
+cp -r ./ /mnt/d/File/Android/MediaCoreAndroid/mediacore/src/main/cpp/deps/libdatachannel

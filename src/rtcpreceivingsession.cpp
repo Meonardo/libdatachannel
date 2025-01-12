@@ -68,6 +68,9 @@ void RtcpReceivingSession::incoming(message_vector &messages, const message_call
 			if (rr->header.payloadType() == 201) { // RR
 				mSsrc = rr->senderSSRC();
 				rr->log();
+				if (mOnReceiverReport) {
+					mOnReceiverReport(rr);
+				}
 			} else if (rr->header.payloadType() == 200) { // SR
 				mSsrc = rr->senderSSRC();
 				auto sr = reinterpret_cast<const RtcpSr *>(message->data());

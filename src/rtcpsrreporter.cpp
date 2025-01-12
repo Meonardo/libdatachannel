@@ -53,6 +53,8 @@ void RtcpSrReporter::outgoing(message_vector &messages, const message_callback &
 		auto timestamp = rtpConfig->timestamp;
 		auto sr = getSenderReport(timestamp);
 		send(sr);
+		auto sr_ptr = reinterpret_cast<RtcpSr*>(sr->data());
+		sr_ptr->log();
 	}
 }
 
