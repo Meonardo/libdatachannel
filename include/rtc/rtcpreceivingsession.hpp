@@ -35,7 +35,11 @@ public:
 	[[deprecated("Use Track::requestKeyframe()")]] inline bool requestKeyframe() { return false; };
 	[[deprecated("Use Track::requestBitrate()")]] inline void requestBitrate(unsigned int) {};
 
-// protected:
+	void setReceiverReportCallback(std::function<void(const RtcpRr *)> onReceiverReport) {
+		mOnReceiverReport = onReceiverReport;
+	}
+
+ protected:
 	void pushREMB(const message_callback &send, unsigned int bitrate);
 	void pushRR(const message_callback &send,unsigned int lastSrDelay);
 	void pushPLI(const message_callback &send);
@@ -48,6 +52,7 @@ public:
 	uint64_t mSyncRTPTS, mSyncNTPTS;
 
 	std::atomic<unsigned int> mRequestedBitrate = 0;
+	rtc::synchronized_callback<const rtc::RtcpRr *> mOnReceiverReport;
 };
 
 } // namespace rtc
