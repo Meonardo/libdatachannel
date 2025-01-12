@@ -42,6 +42,9 @@ public:
 
 	SSRC mSsrc = 0;
 	uint32_t mGreatestSeqNo = 0;
+	uint32_t mRtpRecvCount = 0;
+	uint32_t mCurrentRtpRecvCount = 0;
+	uint32_t mLastSrRtpCount = 0;
 	uint64_t mSyncRTPTS, mSyncNTPTS;
 
 	std::atomic<unsigned int> mRequestedBitrate = 0;

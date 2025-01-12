@@ -44,6 +44,7 @@ void RtcpReceivingSession::incoming(message_vector &messages, const message_call
 			}
 
 			auto rtp = reinterpret_cast<const RtpHeader *>(message->data());
+			++mRtpRecvCount;
 
 			// https://www.rfc-editor.org/rfc/rfc3550.html#appendix-A.1
 			if (rtp->version() != 2) {
@@ -71,12 +72,30 @@ void RtcpReceivingSession::incoming(message_vector &messages, const message_call
 			} else if (rr->header.payloadType() == 200) { // SR
 				mSsrc = rr->senderSSRC();
 				auto sr = reinterpret_cast<const RtcpSr *>(message->data());
+
+				{
+					// calculate the number of packets lost 
+					// between the last SR and the current SR
+					auto sentInInterval = sr->packetCount() - mLastSrRtpCount;
+					auto receivedInInterval = mRtpRecvCount - mCurrentRtpRecvCount;
+
+					auto lostInInterval = sentInInterval - receivedInInterval;
+					auto lostInTotal = sr->packetCount() - mRtpRecvCount;
+					PLOG_WARNING << "Recv RTP count: " << mRtpRecvCount << ", SR RTP count: "
+						<< sr->packetCount() << ", lost packets(total): " << lostInTotal
+						<< ", lost packets(from LSR): " << lostInInterval;
+
+					mCurrentRtpRecvCount = mRtpRecvCount;
+					mLastSrRtpCount = sr->packetCount();
+				}
+
 				mSyncRTPTS = sr->rtpTimestamp();
 				mSyncNTPTS = sr->ntpTimestamp();
 				sr->log();
 
 				// TODO For the time being, we will send RR's/REMB's when we get an SR
 				pushRR(send, 0);
+
 				if (unsigned int bitrate = mRequestedBitrate.load(); bitrate > 0)
 					pushREMB(send, bitrate);
 			}
