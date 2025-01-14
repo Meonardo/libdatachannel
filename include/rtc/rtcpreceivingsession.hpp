@@ -38,21 +38,53 @@ public:
 	void setReceiverReportCallback(std::function<void(const RtcpRr *)> onReceiverReport) {
 		mOnReceiverReport = onReceiverReport;
 	}
+	void setSenderReportCallback(std::function<void(double, double)> onSenderReport) {
+		mOnSenderReport = onSenderReport;
+	}
 
  protected:
 	void pushREMB(const message_callback &send, unsigned int bitrate);
-	void pushRR(const message_callback &send,unsigned int lastSrDelay);
+	void pushRR(const message_callback& send, unsigned int lastSrDelay);
+	void pushRR(const message_callback &send,unsigned int lastSrDelay, 
+		uint8_t fractionLost, uint32_t packetsLostCount);
 	void pushPLI(const message_callback &send);
 
 	SSRC mSsrc = 0;
 	uint32_t mGreatestSeqNo = 0;
-	uint32_t mRtpRecvCount = 0;
-	uint32_t mCurrentRtpRecvCount = 0;
-	uint32_t mLastSrRtpCount = 0;
 	uint64_t mSyncRTPTS, mSyncNTPTS;
 
+	// for calculate lost packets
+	uint16_t mLastRtpSeq = 0;
+	uint16_t mSeqCycles = 0;
+	size_t mLastCyclePackets = 0;
+	uint16_t mSeqMax = 0;
+	uint16_t mSeqBase = 0;
+	size_t mPackets = 0;
+	size_t mLastExpected = 0;
+	size_t mLastLost = 0;
+
+	size_t getExpectedPackets() const {
+		return (mSeqCycles << 16) + mSeqMax - mSeqBase + 1;
+	}
+	size_t getExpectedPacketsInterval() {
+		auto expected = getExpectedPackets() - mPackets;
+		auto ret = expected - mLastExpected;
+		mLastExpected = expected;
+		return ret;
+	}
+	size_t getLost() {
+		return getExpectedPackets() - mPackets;
+	}
+	size_t getLostInterval() {
+		auto lost = getLost();
+		auto ret = lost - mLastLost;
+		mLastLost = lost;
+		return ret;
+	}
+
 	std::atomic<unsigned int> mRequestedBitrate = 0;
-	rtc::synchronized_callback<const rtc::RtcpRr *> mOnReceiverReport;
+	rtc::synchronized_callback<const rtc::RtcpRr *> mOnReceiverReport = nullptr;
+	rtc::synchronized_callback<double, double> mOnSenderReport = nullptr;
 };
 
 } // namespace rtc

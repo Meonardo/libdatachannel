@@ -43,8 +43,27 @@ void RtcpReceivingSession::incoming(message_vector &messages, const message_call
 				continue;
 			}
 
-			auto rtp = reinterpret_cast<const RtpHeader *>(message->data());
-			++mRtpRecvCount;
+			auto rtp = reinterpret_cast<const RtpHeader*>(message->data());
+			++mPackets;
+
+			auto seq = rtp->seqNumber();
+
+			if (mLastRtpSeq > 0xFF00 && seq < 0xFF && 
+				(!mSeqCycles || mPackets - mLastCyclePackets > 0x1FFF)) {
+				++mSeqCycles;
+				mLastCyclePackets = mPackets;
+				mSeqMax = seq;
+			} else if (seq > mSeqMax) {
+				mSeqMax = seq;
+			}
+
+			if (!mSeqBase) {
+				mSeqBase = seq;
+			} else if (!mSeqCycles && seq < mSeqBase) {
+				mSeqBase = seq;
+			}
+
+			mLastRtpSeq = seq;
 
 			// https://www.rfc-editor.org/rfc/rfc3550.html#appendix-A.1
 			if (rtp->version() != 2) {
@@ -76,28 +95,28 @@ void RtcpReceivingSession::incoming(message_vector &messages, const message_call
 				mSsrc = rr->senderSSRC();
 				auto sr = reinterpret_cast<const RtcpSr *>(message->data());
 
-				{
-					// calculate the number of packets lost 
-					// between the last SR and the current SR
-					auto sentInInterval = sr->packetCount() - mLastSrRtpCount;
-					auto receivedInInterval = mRtpRecvCount - mCurrentRtpRecvCount;
-
-					auto lostInInterval = sentInInterval - receivedInInterval;
-					auto lostInTotal = sr->packetCount() - mRtpRecvCount;
-					PLOG_WARNING << "Recv RTP count: " << mRtpRecvCount << ", SR RTP count: "
-						<< sr->packetCount() << ", lost packets(total): " << lostInTotal
-						<< ", lost packets(from LSR): " << lostInInterval;
-
-					mCurrentRtpRecvCount = mRtpRecvCount;
-					mLastSrRtpCount = sr->packetCount();
+				uint8_t fraction = 0;
+				auto expectedInterval = getExpectedPacketsInterval();
+				auto lostInterval = getLostInterval();
+				if (expectedInterval > 0) {
+					fraction = uint8_t(lostInterval << 8 / expectedInterval);
 				}
+				PLOG_VERBOSE << "Recv RTP count: " << mPackets << ", SR RTP count: "
+						<< sr->packetCount() << ", lost packets(total): " << mLastLost
+						<< ", lost packets(since LSR): " << lostInterval << ", expected: " << expectedInterval;
 
 				mSyncRTPTS = sr->rtpTimestamp();
 				mSyncNTPTS = sr->ntpTimestamp();
 				sr->log();
 
 				// TODO For the time being, we will send RR's/REMB's when we get an SR
-				pushRR(send, 0);
+				pushRR(send, 0, fraction, mLastLost);
+
+				if (mOnSenderReport) {
+					auto fractionLost = fraction / 256.0;
+					auto totalLostRate = mLastLost / double(mPackets);
+					mOnSenderReport(fractionLost, totalLostRate);
+				}
 
 				if (unsigned int bitrate = mRequestedBitrate.load(); bitrate > 0)
 					pushREMB(send, bitrate);
@@ -129,12 +148,19 @@ void RtcpReceivingSession::pushREMB(const message_callback &send, unsigned int b
 }
 
 void RtcpReceivingSession::pushRR(const message_callback &send, unsigned int lastSrDelay) {
+	pushRR(send, lastSrDelay, 0, 0);
+}
+
+void RtcpReceivingSession::pushRR(const message_callback& send, unsigned int lastSrDelay, 
+	uint8_t fractionLost, uint32_t packetsLostCount) {
 	auto message = make_message(RtcpRr::SizeWithReportBlocks(1), Message::Control);
-	auto rr = reinterpret_cast<RtcpRr *>(message->data());
+	auto rr = reinterpret_cast<RtcpRr*>(message->data());
 	rr->preparePacket(mSsrc, 1);
 	rr->getReportBlock(0)->preparePacket(mSsrc, 0, 0, uint16_t(mGreatestSeqNo), 0, 0, mSyncNTPTS,
-	                                     lastSrDelay);
+		lastSrDelay);
 	rr->log();
+	rr->getReportBlock(0)->setPacketsLost(fractionLost, packetsLostCount);
+
 	send(message);
 }
 
