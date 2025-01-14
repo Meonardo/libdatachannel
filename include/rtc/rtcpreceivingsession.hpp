@@ -83,8 +83,8 @@ public:
 	}
 
 	std::atomic<unsigned int> mRequestedBitrate = 0;
-	rtc::synchronized_callback<const rtc::RtcpRr *> mOnReceiverReport = nullptr;
-	rtc::synchronized_callback<double, double> mOnSenderReport = nullptr;
+	rtc::synchronized_callback<const rtc::RtcpRr *> mOnReceiverReport;
+	rtc::synchronized_callback<double, double> mOnSenderReport;
 };
 
 } // namespace rtc
